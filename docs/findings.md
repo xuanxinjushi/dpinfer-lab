@@ -2,6 +2,51 @@
 
 Newest first. Each entry says what was measured, where the data is, and what it changes.
 
+## 2026-11-17 — E1: Gate C fails on all pre-registered criteria (Qwen3-4B, RepoQA code, measured)
+
+`bench/e1_locality.py`, `bench/analyze_e1.py`; criteria fixed beforehand in
+`docs/gate-c-criteria.md` (not changed). 6 languages × 2 repos × 3 needles, depths 0.25/0.5/0.75,
+8K/16K/32K (105 prompts; `expressjs/express` too small for 32K), greedy decode to EOS (≤ 256
+steps), every decode step, all 36 layers × 8 KV heads. Always-resident set R = first 64 + last
+1024 tokens; page size 128 unless noted. Data: `results/e1/2026-11-17/` (per-prompt rows,
+`summary.json`, `gate_c.png`); raw per-step traces in `traces/e1/2026-11-17/` (not in git).
+
+Correctly answered prompts (the stratum the criteria use):
+
+| Context | n | C1: share of (t,l,h) with top-10% cold pages ≥ 90% cold mass (need ≥ 0.90) | mean top-10% / top-20% share of cold mass | C2: adjacent-step top-10% overlap (need ≥ 0.80) | cold mass $M_C$ | C3: oracle tokens identical (need ≥ 0.90) | C3: same retrieval (need 1.00) |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 8K | 25 | 0.21 | 0.65 / 0.79 | 0.73 | 0.27 | 0.84 | 0.96 |
+| 16K | 23 | 0.28 | 0.71 / 0.83 | 0.73 | 0.32 | 0.83 | 1.00 |
+| 32K | 16 | 0.32 | 0.76 / 0.87 | 0.73 | 0.40 | 0.50 | 0.94 |
+
+**Gate C: fail (C1, C2 and C3 all fail at every length).** Incorrectly answered prompts look the
+same on C1/C2 (0.18–0.33, 0.72–0.74) and worse on C3.
+
+- **Attention over cold code is diffuse.** The top 10% of cold pages hold only 65–76% of the
+  cold mass; even the top 20% hold 79–87%. Smaller pages help a little (P=64: 0.26–0.39 share),
+  larger pages hurt (P=256: 0.14–0.27).
+- **The cold region matters.** Outside the sink + recent-1024 window sits 27% (8K) to 40% (32K)
+  of all attention mass, growing with context.
+- **The hot set churns:** ~27% of the top-10% pages change between adjacent decode steps, at every
+  length. A GPU page cache (Quest/ShadowKV-style) would miss on a large fraction of pages per step.
+- **Oracle sparsity (R + exact top-10% pages) mostly preserves the retrieval outcome (94–100%)
+  but not the text**: at 32K only half of correctly answered prompts give identical tokens.
+- **Strong layer dependence** (per-layer C1, correct prompts): layers 0–19 are diffuse
+  (C1 ≈ 0–0.3); layers 23–34 are much more concentrated (0.5–0.93, rising with context); layer 30
+  is the only one passing C1 (0.93 at 32K). Per-layer C2 stays 0.6–0.88 with no layer
+  consistently ≥ 0.8 together with a high C1. Layer 35 has almost no cold mass (0.05).
+
+Consequences, per the plan fixed in `gate-c-criteria.md`:
+
+1. **No sparsity story for this model and task.** Hybrid attention stays **exact**: a capacity
+   tool whose speed depends on host bandwidth (Gate B), not on skipping KV.
+2. CPU-side compute over the full cold region remains the relevant path; a GPU hot-page cache
+   is not supported by the data (C2), which answers review point 2 for this setting.
+3. Open, not claimed: a **layer-heterogeneous** policy (exact/dense for layers 0–22, sparse
+   only for late layers) — a new hypothesis that would need its own pre-registered test.
+4. Retrieval at 32K is better than the first sweep suggested once depths vary
+   (16/33 correct vs 1/6 at depth 0.5).
+
 ## 2026-11-17 — Fair budget curve: bf16 CPU kernel makes hybrid beat prefetching offload (RTX 4090 desktop, measured)
 
 `psf/black` needle 0, 64 decode steps, 5 runs. Offload now ships bf16 with layer-wise async

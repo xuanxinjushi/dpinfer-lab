@@ -111,7 +111,11 @@ def main():
                 if (name, needle, n_target) in done:
                     continue
                 depth = DEPTHS[(ni + chosen.index(name)) % len(DEPTHS)]
-                msgs, info = build(tokenizer, repos[name], needle, n_target, depth)
+                try:
+                    msgs, info = build(tokenizer, repos[name], needle, n_target, depth)
+                except ValueError as e:              # repo smaller than the target context
+                    print(f"skip {name} needle {needle} @ {n_target}: {e}", flush=True)
+                    continue
                 ids = tokenizer.apply_chat_template(msgs, tokenize=True, add_generation_prompt=True,
                                                     enable_thinking=False, return_tensors="pt",
                                                     return_dict=True)["input_ids"].to("cuda")

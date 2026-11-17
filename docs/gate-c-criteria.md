@@ -3,6 +3,9 @@
 Status: **criteria fixed 2026-11-17, before any E1 data was collected.** Changing a threshold after
 seeing data must be recorded in this file with the date and reason.
 
+**Outcome (2026-11-17): Gate C failed** — C1, C2 and C3 all fail at 8K, 16K and 32K on correctly
+answered prompts; thresholds unchanged. Details: `docs/findings.md`, `results/e1/2026-11-17/`.
+
 Gate C asks whether attention over historical code KV is concentrated and stable enough that keeping
 or computing only a small subset of KV pages per step is justified. The method (E1) is in README §8;
 this file fixes what counts as a pass.
