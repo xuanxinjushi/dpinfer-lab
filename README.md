@@ -176,7 +176,7 @@ At 23 input tokens, end-to-end throughput ≈ decode throughput, and prefill cos
 | 16K | 1.62 s | 20.03 | 49.8 | 11.0 GiB | 5/6 |
 | 32K | 4.25 s | 28.95 | 34.6 | 14.4 GiB | 1/6 |
 
-Kernel profile at 32K (`bench/hf_decode_profile.py`): weight GEMV 9.4 ms (34%), attention 6.5 ms (24%), **KV-cache `torch.cat` copy 9.4 ms (34%)**, other 2.3 ms. HF's `DynamicCache` copies the whole cache every decode step; this is an implementation artifact, so this HF eager setup is **not** a valid reference for hybrid-attention comparisons. FlashAttention split-KV decode itself reads KV at ~765 GB/s. `StaticCache` in eager mode is 2.4× slower at 32K because SDPA falls back to the memory-efficient kernel. Without the copy, attention would be roughly 9% of a decode step at 8K and 35% at 32K (estimate from the profile, not measured).
+Kernel profile at 32K (`bench/hf_decode_profile.py`): weight GEMV 9.4 ms (34%), attention 6.5 ms (24%), **KV-cache `torch.cat` copy 9.4 ms (34%)**, other 2.3 ms. HF's `DynamicCache` copies the whole cache every decode step; this is an implementation artifact, so this HF eager setup is **not** a valid reference for hybrid-attention comparisons. FlashAttention split-KV decode itself reads KV at ~765 GB/s. `StaticCache` in eager mode is 2.4× slower at 32K because SDPA falls back to the memory-efficient kernel. **Measured fix:** a preallocated in-place cache (`src/dpinfer/kvcache.py`) gives token-identical output and decode of 13.53 / 14.73 / 18.77 ms/token at 1K / 8K / 32K (1.54× faster at 32K; fit 13.4 ms + 0.164 ms per 1K context, KV read at ~900 GB/s). All later baselines use this cache. See `docs/findings.md`.
 
 Suggested local matrix (used above):
 
@@ -344,6 +344,7 @@ Latency is generally not directly differentiable; practical training would need 
 ```text
 dpinfer-lab/
 ├── README.md                      # This file
+├── docs/                          # Design notes: budget experiment, hybrid implementation, L40 outlook, findings log
 ├── models/                        # Downloaded checkpoints (not committed)
 │   └── Qwen3-4B/
 ├── data/                          # RepoQA / SWE-smith (not committed)
@@ -356,12 +357,16 @@ dpinfer-lab/
 │   ├── hf_prefill_decode.py       # Prefill vs per-token decode, CUDA-event timed
 │   ├── hf_context_sweep.py        # Prefill/decode vs context length on RepoQA code
 │   ├── analyze_context_sweep.py   # Table, linear cost fit, plot for a sweep directory
-│   └── hf_decode_profile.py       # Kernel-time breakdown; DynamicCache vs StaticCache
+│   ├── hf_decode_profile.py       # Kernel-time breakdown; dynamic / in-place / static cache
+│   ├── cpu_attention.py           # Gate B: host bandwidth, PCIe, CPU vs GPU decode attention
+│   └── hybrid_budget.py           # Decode under a GPU KV budget: full / hybrid / offload / drop
 ├── scratch/
 │   └── hf_smoke.py                # Load + generate smoke test (§4.3)
 ├── src/dpinfer/
 │   ├── common.py                  # Shared model loading / inputs / warmup
 │   ├── timing.py                  # Manual prefill/decode loop with CUDA-event timing
+│   ├── kvcache.py                 # Copy-free (in-place) KV cache; cache factory
+│   ├── hybrid.py                  # HybridCache + hybrid CPU/GPU attention (exact LSE fusion)
 │   └── repoqa.py                  # Fixed-length RepoQA needle prompts from real repos
 ├── hybrid_gqa_poc.py              # Future: copy from dpinfer local PoC archive
 └── traces/                        # Future: Q/K traces and page metadata

@@ -1,6 +1,7 @@
 """Manual greedy prefill/decode loop with per-forward CUDA-event timing."""
 import torch
-from transformers import DynamicCache
+
+from dpinfer.kvcache import make_cache
 
 
 def pct(xs, p):
@@ -9,14 +10,17 @@ def pct(xs, p):
 
 
 @torch.inference_mode()
-def run_once(model, input_ids, decode_steps):
+def run_once(model, input_ids, decode_steps, cache="dynamic"):
     """Prefill = one forward over the prompt (yields token 1).
     Decode = `decode_steps` single-token forwards over the KV cache (tokens 2..N+1).
     Each forward is bracketed by CUDA events; no host sync between steps.
+    `cache`: "dynamic" (HF default, torch.cat append), "inplace" (preallocated, copy-free), "static",
+    or a callable (n_in, decode_steps) -> Cache.
     Returns (prefill_ms, [decode_ms...], generated_token_ids[1, decode_steps+1])."""
     n_in = input_ids.shape[-1]
     dev = input_ids.device
-    cache = DynamicCache(config=model.config)
+    cache = (make_cache(cache, model, n_in + decode_steps + 1) if isinstance(cache, str)
+             else cache(n_in, decode_steps))
     ev = [torch.cuda.Event(enable_timing=True) for _ in range(2 * (decode_steps + 1))]
 
     ev[0].record()

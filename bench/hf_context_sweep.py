@@ -47,6 +47,8 @@ def main():
     ap.add_argument("--depth", type=float, default=0.5)
     ap.add_argument("--decode-steps", type=int, default=256)
     ap.add_argument("--runs", type=int, default=5)
+    ap.add_argument("--cache", choices=["dynamic", "inplace", "static"], default="dynamic",
+                    help="KV cache: HF DynamicCache (torch.cat), preallocated in-place, or StaticCache")
     ap.add_argument("--rescore", action="store_true",
                     help="recompute answer/match/found for existing JSONs in --out; keep timings")
     ap.add_argument("--out", type=Path,
@@ -60,7 +62,7 @@ def main():
     env = {
         "torch": torch.__version__, "transformers": transformers.__version__,
         "attn_implementation": model.config._attn_implementation,
-        "dtype": str(model.dtype), "background_gpu": background,
+        "dtype": str(model.dtype), "background_gpu": background, "cache": args.cache,
         "weights_gib": torch.cuda.memory_allocated() / 2**30,
     }
     print(json.dumps(env), flush=True)
@@ -79,7 +81,7 @@ def main():
 
             if args.rescore:  # recompute answer/match only; keep stored timings
                 rec = json.loads(fn.read_text())
-                _, _, toks = run_once(model, input_ids, args.decode_steps)
+                _, _, toks = run_once(model, input_ids, args.decode_steps, args.cache)
                 match, answer = check_answer(model, tokenizer, input_ids, toks, args.decode_steps)
                 rec["answer"] = answer
                 rec["summary"]["matches_generate"] = match
@@ -95,11 +97,11 @@ def main():
                 write_summary(args.out, summary_rows)
                 continue
 
-            run_once(model, input_ids, 16)  # warmup at this shape
+            run_once(model, input_ids, 16, args.cache)  # warmup at this shape
 
             runs = []
             for r in range(args.runs):
-                p, d, toks = run_once(model, input_ids, args.decode_steps)
+                p, d, toks = run_once(model, input_ids, args.decode_steps, args.cache)
                 runs.append({"prefill_ms": p, "decode_ms": [round(x, 4) for x in d]})
                 if r == 0:
                     first_toks = toks

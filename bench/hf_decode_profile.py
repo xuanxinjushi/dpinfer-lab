@@ -1,8 +1,8 @@
-"""Where does decode time go at long context? Kernel breakdown + DynamicCache vs StaticCache.
+"""Where does decode time go at long context? Kernel breakdown per KV-cache implementation.
 
 For each context length: prefill a RepoQA prompt, then
-  1) time `--steps` decode forwards with CUDA events for DynamicCache and StaticCache, and
-  2) profile the same decode steps (DynamicCache and StaticCache) with torch.profiler and
+  1) time `--steps` decode forwards with CUDA events for each cache kind (dynamic/inplace/static), and
+  2) profile the same decode steps with torch.profiler and
      bucket GPU kernel time into matmul / attention / KV-cache copy / other.
 """
 import sys
@@ -18,9 +18,9 @@ import statistics
 
 import torch
 from torch.profiler import ProfilerActivity, profile
-from transformers import DynamicCache, StaticCache
 
 from dpinfer.common import load_model
+from dpinfer.kvcache import make_cache
 from dpinfer.repoqa import build, load_repos
 
 BUCKETS = [
@@ -35,12 +35,6 @@ def bucket(name):
         if rx.search(name):
             return b
     return "other"
-
-
-def make_cache(kind, model, max_len):
-    if kind == "dynamic":
-        return DynamicCache(config=model.config)
-    return StaticCache(config=model.config, max_cache_len=max_len)
 
 
 @torch.inference_mode()
@@ -71,6 +65,7 @@ def main():
     ap.add_argument("--lengths", nargs="+", type=int, default=[1024, 8192, 32768])
     ap.add_argument("--steps", type=int, default=64)
     ap.add_argument("--profile-steps", type=int, default=16)
+    ap.add_argument("--caches", nargs="+", default=["dynamic", "inplace", "static"])
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -85,7 +80,7 @@ def main():
                                             return_dict=True)["input_ids"].to("cuda")
         L = ids.shape[-1]
         row = {"target": n, "prompt_tokens": L}
-        for kind in ["dynamic", "static"]:
+        for kind in args.caches:
             torch.cuda.empty_cache()
             max_len = L + args.steps + args.profile_steps + 8
             cache = make_cache(kind, model, max_len)
@@ -112,7 +107,7 @@ def main():
             del cache
         results.append(row)
         print(f"\n=== {args.repo} {L} tokens ===")
-        for kind in ["dynamic", "static"]:
+        for kind in args.caches:
             print(f"{kind:8s} decode {row[f'{kind}_decode_ms_median']:6.2f} ms/tok | kernels "
                   f"{row[f'{kind}_kernel_ms_per_step']:6.2f} ms/step | share {row[f'{kind}_share']}")
             for k in row[f"{kind}_top_kernels"][:6]:
