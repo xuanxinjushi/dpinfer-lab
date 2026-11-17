@@ -182,7 +182,11 @@ def _flash_lse(q, k, v, scale):
 
 
 def cpu_partial(q, k, v, scale):
-    """q [Hkv, G, D] fp32 (cpu); k/v [Hkv, L, D] (cpu) -> out [Hkv, G, D] fp32, lse [Hkv, G] fp32."""
+    """q [Hkv, G, D] fp32 (cpu); k/v [Hkv, L, D] (cpu) -> out [Hkv, G, D] fp32, lse [Hkv, G] fp32.
+    bf16/fp16 KV uses the AVX2 kernel (PyTorch's CPU matmul is pathological for these shapes)."""
+    if k.dtype in (torch.bfloat16, torch.float16):
+        from dpinfer.cpu_kernel import gqa_decode
+        return gqa_decode(q, k, v, scale)
     s = torch.matmul(q.to(k.dtype), k.transpose(-1, -2)).float() * scale
     lse = torch.logsumexp(s, dim=-1)
     p = torch.exp(s - lse[..., None]).to(v.dtype)

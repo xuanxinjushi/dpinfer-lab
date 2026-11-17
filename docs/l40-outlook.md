@@ -34,6 +34,16 @@ because of lower memory bandwidth.
    `offload` there. Must be measured: NUMA placement (KV and threads on the same socket) will
    matter a lot.
 
+## CPU kernel notes for the Xeon 8362 (Ice Lake)
+
+- `src/dpinfer/cpu_kernel.py` builds with `-mavx2 -mfma -mf16c`. The intrinsics are AVX2, so
+  `-mavx512f` / `-march=native` alone will not widen them; an AVX-512 variant of
+  `csrc/cpu_attn.cpp` has to be written (bf16→fp32 is still a shift; no AVX512_BF16 on Ice Lake).
+- The kernel is memory-bound. On a two-socket machine NUMA placement likely matters more than
+  vector width: keep each layer's cold KV in one socket's memory and bind the threads that read it
+  to that socket (`numactl`, or first-touch from pinned threads). Measure per-socket and
+  cross-socket bandwidth first.
+
 ## What to run on the L40 (in order)
 
 1. Copy the repo (git), `models/Qwen3-4B`, and `data/repoqa_release/` to the server.

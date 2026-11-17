@@ -2,6 +2,48 @@
 
 Newest first. Each entry says what was measured, where the data is, and what it changes.
 
+## 2026-11-17 — Fair budget curve: bf16 CPU kernel makes hybrid beat prefetching offload (RTX 4090 desktop, measured)
+
+`psf/black` needle 0, 64 decode steps, 5 runs. Offload now ships bf16 with layer-wise async
+prefetch (`offload`); `offload_sync` is the same without prefetch. Hybrid uses the new AVX2 bf16
+kernel (`src/dpinfer/csrc/cpu_attn.cpp`, 24 threads) on bf16 host KV; the earlier fp32 PyTorch
+CPU path is shown for reference. Data: `results/hybrid_budget/2026-11-17_fair/`,
+`results/hybrid_budget/2026-11-17_fair_bf16kernel/`. Decode ms/token, median:
+
+| Context | Budget | full | **hybrid, bf16 kernel** | offload (prefetch) | offload_sync | hybrid, fp32 PyTorch | drop (lossy) |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 8K | 50% | 14.7 | 30.1 | **26.3** | 41.4 | 42.3 | 14.1 |
+| 8K | 25% | | **35.7** | 38.7 | 53.7 | 54.1 | 13.8 |
+| 8K | 10% | | **39.6** | 46.0 | 61.2 | 63.6 | 13.5 |
+| 16K | 50% | 16.1 | **42.2** | 51.0 | 68.2 | 67.7 | 14.7 |
+| 16K | 25% | | **57.4** | 75.9 | 93.1 | 95.1 | 14.1 |
+| 16K | 10% | | **65.3** | 91.1 | 107.9 | 108.4 | 13.6 |
+| 32K | 50% | 18.8 | **70.8** | 101.5 | 122.1 | 117.3 | 16.1 |
+| 32K | 25% | | **99.0** | 152.4 | 173.0 | 168.2 | 14.7 |
+| 32K | 10% | | **114.5** | 182.7 | 203.2 | 196.2 | 14.0 |
+
+- All exact modes (hybrid, offload, offload_sync) are token-identical to `full` in every
+  configuration. `drop` diverges within 3–8 tokens and loses the needle at 8K ≤ 25% and at all
+  16K budgets, where `full` finds it.
+- **Gate B passes on this desktop with the bf16 kernel:** hybrid beats prefetching offload in
+  8 of 9 configurations, by up to **1.6×** (32K/10%: 114.5 vs 182.7 ms). The exception is
+  8K/50%, where cold KV is small and the fixed hybrid overhead dominates.
+- The kernel reads bf16 KV at ~50 GB/s (≈70% of the 71 GB/s host read bandwidth); offload is
+  transfer-bound at ~24 GB/s. That ratio is the whole advantage.
+- Hybrid ≈ `full` + CPU time + 3–9 ms: the CPU part is **not overlapped** with the rest of the
+  GPU step, because each layer waits for its CPU result. Overlap would need cross-layer
+  pipelining, which the data dependency between layers does not allow for exact attention.
+- Prefetch is worth 15–20 ms per token for offload; without it offload ≈ the old fp32 hybrid.
+- Decode-phase peak VRAM (prefill transients excluded): 32K `full` 12.01 GiB vs 7.96 GiB at a 10%
+  budget (weights 7.49 + KV 0.46).
+- The earlier `drop` anomaly (32K/10% slower than `full`) does not reproduce with 5 runs
+  (13.97 ms): it was noise.
+- Still far from `full` (3–6× slower at 32K): exact hybrid is a capacity tool on this machine.
+  Beating it needs fewer cold bytes per step (Gate C) or much higher host bandwidth (L40 server).
+
+Kernel to-dos: reuse a preallocated scratch buffer instead of 5 tensor allocations per call
+(≤ ~3% headroom: in-model 49.6 GB/s vs 51 GB/s standalone); AVX-512 path for the L40 server.
+
 ## 2026-11-17 — Gate B microbenchmarks (RTX 4090 desktop, i9-13900KF, measured)
 
 `bench/cpu_attention.py`; data `results/gate_b/2026-11-17/cpu_attention.json`,
