@@ -233,20 +233,20 @@ done
 
 This script uses **synthetic FP32 Q/K/V**, PyTorch reference operations and a thread pool. It evaluates **one decode-step GQA attention** split between CPU and GPU, and checks its output against full GPU attention. It **does not** load Qwen, measure coding accuracy, or implement a production FlashAttention backend.
 
-For scores `s_i = q·k_i / sqrt(d)`, each KV partition `P` computes
+For scores $s_i = q \cdot k_i / \sqrt{d}$, each KV partition $P$ computes
 
-\[
+$$
 m_P=\max_{i\in P}s_i,\quad
 \ell_P=\sum_{i\in P}e^{s_i-m_P},\quad
 u_P=\sum_{i\in P}e^{s_i-m_P}v_i.
-\]
+$$
 
-With GPU partition `G` and CPU partition `C`, define `m = max(m_G,m_C)`. Then the exact fused attention is
+With GPU partition $G$ and CPU partition $C$, define $m = \max(m_G, m_C)$. Then the exact fused attention is
 
-\[
+$$
 O=\frac{e^{m_G-m}u_G+e^{m_C-m}u_C}
         {e^{m_G-m}\ell_G+e^{m_C-m}\ell_C}.
-\]
+$$
 
 This is standard **stable log-sum-exp fusion**, not a novel mathematical result. CPU sends compact partial statistics rather than the complete historical KV; numerical error should be small under FP32 reference computation.
 
@@ -260,10 +260,10 @@ Once the synthetic exact-attention reference passes, collect **real Q/K tensors*
 
 For each selected **decode** step, attention layer and query head, compute normalized attention mass of logical KV page `b`:
 
-\[
+$$
 A_{l,h,b}=\sum_{i\in b}
 \operatorname{softmax}\!\left(\frac{q_{l,h}K_{l,h}^{\top}}{\sqrt{d}}\right)_i.
-\]
+$$
 
 Capture and record:
 
@@ -291,9 +291,9 @@ Required measurements: max/relative output error, end-to-end attention latency, 
 
 A simple cost model is:
 
-\[
+$$
 T_{\mathrm{hybrid}} \approx T_{\mathrm{sync}}+\max(T_{\mathrm{CPU\ path}},T_{\mathrm{GPU\ path}})+T_{\mathrm{fusion}},
-\]
+$$
 
 but **only a measured runtime** can establish actual overlap and critical-path latency. Test CPU attention against *fetch + GPU attention* before assuming the CPU path wins. An exact hybrid method cannot improve model quality by itself.
 
@@ -319,11 +319,11 @@ Only after measuring a real workload should the project attempt:
 
 Research objective, not an achieved result:
 
-\[
+$$
 \min_{\theta,\pi}\;\mathcal L_{\mathrm{coding}}(\theta,\pi)
 +\lambda\widehat T_{\mathrm{decode}}(\theta,\pi)
 \quad \text{s.t.}\quad M_{\mathrm{GPU}}\le M_{\max}.
-\]
+$$
 
 Latency is generally not directly differentiable; practical training would need a differentiable surrogate, relaxed placement policy, or alternating optimization. Always separately test whether software changes and model changes improve runtime and coding accuracy.
 
