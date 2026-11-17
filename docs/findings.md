@@ -2,6 +2,40 @@
 
 Newest first. Each entry says what was measured, where the data is, and what it changes.
 
+## 2026-11-17 — Gate A passed end-to-end; first KV-budget curve (RTX 4090 desktop, measured)
+
+`bench/hybrid_budget.py`, `psf/black` needle 0, 64 greedy decode steps, 2 runs, 8 CPU threads,
+host KV stored as fp32. Data: `results/hybrid_budget/2026-11-17_check/`.
+
+| Context | GPU budget | full | hybrid (CPU attn) | offload (PCIe) | drop (lossy) |
+|---:|---:|---:|---:|---:|---:|
+| 8K | 50% | 14.7 | 41.2 | 67.2 | 14.1 |
+| 8K | 25% | | 52.3 | 93.1 | 13.8 |
+| 8K | 10% | | 59.8 | 108.2 | 13.5 |
+| 32K | 50% | 18.8 | 115.9 | 231.5 | 16.1 |
+| 32K | 25% | | 163.9 | 337.5 | 16.6 |
+| 32K | 10% | | 192.6 | 400.8 | 21.8 |
+
+Decode ms/token (median).
+
+- **Exactness:** `hybrid` and `offload` generate tokens identical to `full` in all 12
+  configurations (Gate A on the real model). `drop` diverges from `full` within 3–8 tokens, and at
+  8K with a 25% or 10% budget it loses the needle that `full`/`hybrid` find.
+- **hybrid ≈ 2× faster than offload** at every budget. Both are bandwidth-bound: the CPU path
+  reads cold KV at **~50 GB/s** (the desktop's dual-channel DRAM limit, measured from CPU time),
+  offload moves it at ~22 GB/s over PCIe.
+- **hybrid is 3–10× slower than full** on this desktop. Almost all of the gap is CPU attention
+  time (e.g. 32K/10%: 173 ms CPU of 193 ms); the per-layer GPU↔CPU sync costs only ~1–2 ms/token.
+- GPU memory saved: KV 4.51 → 0.46 GiB at 32K/10%; peak VRAM 14.4 → 10.4 GiB (peak still
+  includes one layer's transient full prefill KV).
+- Caveat (fairness): host KV is fp32 for both exact modes, so both move 2× the bytes of bf16.
+  Next run: bf16 host KV for `offload` (halves PCIe bytes), and bf16/fp16 for `hybrid` if the
+  CPU kernel stays bandwidth-bound (`bench/cpu_attention.py`).
+
+Consequence: the CPU/GPU crossover (Gate B) holds on this machine: computing on the host beats
+shipping KV. Matching `full` needs either much more host bandwidth (L40 server, see
+`l40-outlook.md`) or reading far less cold KV per step (sparse selection, Gate C).
+
 ## 2026-11-17 — Copy-free KV cache removes the HF long-context artifact (RTX 4090, measured)
 
 `DynamicCache` appends with `torch.cat`, re-copying the whole KV cache every decode step. We added
