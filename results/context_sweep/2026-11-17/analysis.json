@@ -1,0 +1,110 @@
+{
+ "table": [
+  {
+   "target": 1024,
+   "prompt_tokens": 1010,
+   "kv_cache_gib": 0.16,
+   "prefill_ms": 63.6,
+   "prefill_tok_s": 15886,
+   "decode_ms": 13.62,
+   "decode_ms_min_repo": 13.61,
+   "decode_ms_max_repo": 13.63,
+   "decode_tok_s": 73.51,
+   "eff_bw_gbs": 603,
+   "peak_vram_gib": 7.74,
+   "found": "6/6",
+   "match_generate": false,
+   "decode_vs_first": 1.0,
+   "bw_model_ms": 13.62
+  },
+  {
+   "target": 4096,
+   "prompt_tokens": 4082,
+   "kv_cache_gib": 0.58,
+   "prefill_ms": 287.1,
+   "prefill_tok_s": 14224,
+   "decode_ms": 14.77,
+   "decode_ms_min_repo": 14.76,
+   "decode_ms_max_repo": 14.79,
+   "decode_tok_s": 67.68,
+   "eff_bw_gbs": 587,
+   "peak_vram_gib": 8.37,
+   "found": "6/6",
+   "match_generate": false,
+   "decode_vs_first": 1.08,
+   "bw_model_ms": 14.37
+  },
+  {
+   "target": 8192,
+   "prompt_tokens": 8178,
+   "kv_cache_gib": 1.14,
+   "prefill_ms": 675.9,
+   "prefill_tok_s": 12103,
+   "decode_ms": 16.25,
+   "decode_ms_min_repo": 16.24,
+   "decode_ms_max_repo": 16.26,
+   "decode_tok_s": 61.53,
+   "eff_bw_gbs": 570,
+   "peak_vram_gib": 9.23,
+   "found": "5/6",
+   "match_generate": false,
+   "decode_vs_first": 1.19,
+   "bw_model_ms": 15.38
+  },
+  {
+   "target": 16384,
+   "prompt_tokens": 16377,
+   "kv_cache_gib": 2.27,
+   "prefill_ms": 1620.8,
+   "prefill_tok_s": 10104,
+   "decode_ms": 20.03,
+   "decode_ms_min_repo": 20.01,
+   "decode_ms_max_repo": 20.04,
+   "decode_tok_s": 49.84,
+   "eff_bw_gbs": 523,
+   "peak_vram_gib": 10.96,
+   "found": "5/6",
+   "match_generate": false,
+   "decode_vs_first": 1.47,
+   "bw_model_ms": 17.38
+  },
+  {
+   "target": 32768,
+   "prompt_tokens": 32758,
+   "kv_cache_gib": 4.52,
+   "prefill_ms": 4245.5,
+   "prefill_tok_s": 7717,
+   "decode_ms": 28.95,
+   "decode_ms_min_repo": 28.94,
+   "decode_ms_max_repo": 28.95,
+   "decode_tok_s": 34.56,
+   "eff_bw_gbs": 445,
+   "peak_vram_gib": 14.42,
+   "found": "1/6",
+   "match_generate": false,
+   "decode_vs_first": 2.13,
+   "bw_model_ms": 21.39
+  }
+ ],
+ "fit": {
+  "fixed_ms": 12.590147197571795,
+  "ms_per_1k_ctx": 0.48645002728926345,
+  "max_abs_resid_ms": 0.600943647298859,
+  "implied_weight_bw_gbs": 638.9882121117372,
+  "implied_kv_bw_gbs": 303.1267175000414,
+  "attn_share_at_32k": 0.5587071619347616
+ },
+ "env": {
+  "torch": "2.14.1+cu130",
+  "transformers": "5.23.0",
+  "attn_implementation": "sdpa",
+  "dtype": "torch.bfloat16",
+  "background_gpu": {
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "driver": "580.126.09",
+   "mem_used_mib": 1934,
+   "mem_total_mib": 24564
+  },
+  "weights_gib": 7.492448806762695
+ }
+}

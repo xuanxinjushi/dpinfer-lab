@@ -49,7 +49,7 @@ Source measurements and background are in `l40-report.md` and `research.md` if c
 
 | Phase | Experiment | Main result sought | Status |
 |---|---|---|---|
-| 0 | Run Qwen3-4B and establish coding-generation baseline | Repeatable latency and throughput | **Baseline obtained** |
+| 0 | Run Qwen3-4B and establish coding-generation baseline | Repeatable latency and throughput | **Baseline obtained** (23 tok and 1K–32K RepoQA sweep, HF eager) |
 | 1 | Collect coding attention locality traces | Attention mass per KV page; hot-page reuse across steps | **Planned** |
 | 2 | Compare full-GPU, CPU-resident, synchronous offload, exact hybrid attention | Correctness and cost crossover | **Standalone PoC available; optimized comparison pending** |
 | 3 | Integrate a hybrid attention backend into model inference | End-to-end decode latency and memory under equal workloads | **Planned** |
@@ -162,11 +162,23 @@ The two runs differ by about **0.28%**. `perf-decode.py` was renamed because it 
 | Decode throughput | 75.55 tok/s median (75.52–75.60) |
 | Peak VRAM allocated | 7.54 GiB |
 
-At 23 input tokens, end-to-end throughput ≈ decode throughput, and prefill costs about one decode step (both weight-read bound). Decode reaches ~60% of the memory-bandwidth floor (~8 GB weights per step at ~1 TB/s → ~8 ms). Whether the remaining ~5 ms/token is kernel-launch overhead is an **untested hypothesis** (test: static cache + CUDA graphs). About 1.9 GiB of VRAM was held by other processes (likely the desktop) during this run. No 1K–32K long-context benchmark has yet been reported.
+At 23 input tokens, end-to-end throughput ≈ decode throughput, and prefill costs about one decode step (both weight-read bound). Decode reaches ~60% of the memory-bandwidth floor (~8 GB weights per step at ~1 TB/s → ~8 ms). A later kernel profile at 1K context (below) splits the gap: the weight GEMVs themselves run at ~880 GB/s (9.1 ms/step); the rest is ~2.2 ms of small kernels (norms, RoPE, elementwise) and ~1.4 ms of GPU idle time between kernel launches. About 1.9 GiB of VRAM was held by other processes (desktop sessions, Chrome, CosyVoice) during this run.
 
-Still to add for long contexts: time to first token at realistic prompt lengths, and repeated configurations with fixed settings.
+### Long-context sweep on real code (2026-11-17)
 
-Suggested local matrix:
+`bench/hf_context_sweep.py`: RepoQA needle-function prompts from 6 repos (one per language), 1K–32K tokens, 256 decode steps, 5 runs each, `DynamicCache` + SDPA. Full write-up: `results/2026-11-17_context-sweep_qwen3-4b.md`.
+
+| Context | Prefill | Decode ms/tok | Decode tok/s | Peak VRAM | Needle found |
+|---:|---:|---:|---:|---:|---:|
+| 1K | 64 ms | 13.62 | 73.5 | 7.7 GiB | 6/6 |
+| 4K | 287 ms | 14.77 | 67.7 | 8.4 GiB | 6/6 |
+| 8K | 676 ms | 16.25 | 61.5 | 9.2 GiB | 5/6 |
+| 16K | 1.62 s | 20.03 | 49.8 | 11.0 GiB | 5/6 |
+| 32K | 4.25 s | 28.95 | 34.6 | 14.4 GiB | 1/6 |
+
+Kernel profile at 32K (`bench/hf_decode_profile.py`): weight GEMV 9.4 ms (34%), attention 6.5 ms (24%), **KV-cache `torch.cat` copy 9.4 ms (34%)**, other 2.3 ms. HF's `DynamicCache` copies the whole cache every decode step; this is an implementation artifact, so this HF eager setup is **not** a valid reference for hybrid-attention comparisons. FlashAttention split-KV decode itself reads KV at ~765 GB/s. `StaticCache` in eager mode is 2.4× slower at 32K because SDPA falls back to the memory-efficient kernel. Without the copy, attention would be roughly 9% of a decode step at 8K and 35% at 32K (estimate from the profile, not measured).
+
+Suggested local matrix (used above):
 
 | Prompt length | Generated tokens | Purpose |
 |---:|---:|---|
@@ -341,11 +353,16 @@ dpinfer-lab/
 ├── bench/
 │   ├── hf_generate_timed.py       # One timed generate() run + output text
 │   ├── hf_generate_median.py      # Median end-to-end generate() over 5 runs
-│   └── hf_prefill_decode.py       # Prefill vs per-token decode, CUDA-event timed
+│   ├── hf_prefill_decode.py       # Prefill vs per-token decode, CUDA-event timed
+│   ├── hf_context_sweep.py        # Prefill/decode vs context length on RepoQA code
+│   ├── analyze_context_sweep.py   # Table, linear cost fit, plot for a sweep directory
+│   └── hf_decode_profile.py       # Kernel-time breakdown; DynamicCache vs StaticCache
 ├── scratch/
 │   └── hf_smoke.py                # Load + generate smoke test (§4.3)
 ├── src/dpinfer/
-│   └── common.py                  # Shared model loading / inputs / warmup
+│   ├── common.py                  # Shared model loading / inputs / warmup
+│   ├── timing.py                  # Manual prefill/decode loop with CUDA-event timing
+│   └── repoqa.py                  # Fixed-length RepoQA needle prompts from real repos
 ├── hybrid_gqa_poc.py              # Future: copy from dpinfer local PoC archive
 └── traces/                        # Future: Q/K traces and page metadata
 ```
@@ -369,13 +386,15 @@ Before publishing any performance claim, record:
 ## 14. Immediate next steps
 
 1. ~~Preserve the ~76 tokens/s short-prompt baseline and separate prefill from decode.~~ Done for a 23-token prompt (§5).
-2. Run `hybrid_gqa_poc.py` for numerical correctness over 2K–16K sequences.
-3. Build a longer-input 1K/4K/8K/16K/32K coding benchmark from RepoQA by extending `bench/hf_prefill_decode.py` with a context-length option; have it write JSON to `results/`.
-4. Add an **offline trace extractor** for a few layers/heads on 50–100 real RepoQA queries.
-5. Plot attention-mass concentration and page reuse before implementing sparse scheduling.
-6. Implement and compare optimized CPU attention, synchronous GPU fetch and exact hybrid on matched inputs.
-7. Only after positive results: integrate runtime changes and test coding-aware adapters.
+2. ~~Build a 1K–32K RepoQA coding benchmark with separate prefill/decode timing.~~ Done (§5).
+3. **Artifact-free GPU baseline:** preallocated KV written in place + FlashAttention decode with per-sequence length (`flash_attn_with_kvcache`, FlashInfer or vLLM); re-run the sweep against it.
+4. **Measure host memory bandwidth and a CPU attention kernel** on matched KV (Gate B); replaces the back-of-envelope estimate that dense CPU attention at 32K would be ~10× slower than the GPU.
+5. Run `hybrid_gqa_poc.py` for numerical correctness over 2K–16K sequences.
+6. Add an **offline trace extractor** for a few layers/heads on 50–100 real RepoQA queries.
+7. Plot attention-mass concentration and page reuse before implementing sparse scheduling.
+8. Implement and compare optimized CPU attention, synchronous GPU fetch and exact hybrid on matched inputs.
+9. Only after positive results: integrate runtime changes and test coding-aware adapters.
 
 ---
 
-**Current evidence:** The RTX 4090 PyTorch/CUDA stack runs successfully, and Qwen3-4B loads and generates text with a measured short-input throughput near 76 output tokens per total second; isolated decode is 13.25 ms/token (75.55 tok/s) with a 14.73 ms prefill at 23 input tokens. **Not yet demonstrated:** long-context locality, a hybrid attention speedup, or accuracy gains from fine-tuning.
+**Current evidence:** The RTX 4090 PyTorch/CUDA stack runs successfully, and Qwen3-4B loads and generates text with a measured short-input throughput near 76 output tokens per total second; isolated decode is 13.25 ms/token (75.55 tok/s) with a 14.73 ms prefill at 23 input tokens. On real code, decode slows from 13.6 ms/token at 1K to 29.0 ms at 32K, but a third of the 32K cost is HF `DynamicCache` copying, not attention; needle retrieval drops from 6/6 at 1K to 1/6 at 32K. **Not yet demonstrated:** long-context locality, a hybrid attention speedup, or accuracy gains from fine-tuning.
