@@ -12,6 +12,7 @@ what we are testing, why, and how the code does it.
 | [review-gemini.md](review-gemini.md) | External review of the first results (fp32 offload strawman, CPU vs GPU page cache, hygiene) |
 | [l40-outlook.md](l40-outlook.md) | What these results mean for the L40 server and what to run there |
 | [l40-runbook.md](l40-runbook.md) | Step-by-step commands for running the experiments on the L40 server |
+| [model-choice.md](model-choice.md) | Which model to run where (Qwen3-4B first; 27B FP8 / Qwen3-14B next) and what to check first |
 
 Conventions:
 

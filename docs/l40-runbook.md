@@ -10,6 +10,11 @@ Goal on this machine, in priority order:
 2. **Copy-free baseline** (`full`) decode latency on the L40.
 3. **KV-budget curve:** `hybrid` vs `offload` vs `full` at 50/25/10% GPU KV budgets, 8K–32K.
 
+Model: **Qwen3-4B**, the same checkpoint as on the desktop, so results are comparable across
+machines. The 27B FP8 model already on the server comes after this; see
+[model-choice.md](model-choice.md) for the checks needed first
+(`python scratch/inspect_config.py /path/to/27B`).
+
 E1 / Gate C does not need to be repeated here: it measures the model's attention, not the machine.
 
 ---
