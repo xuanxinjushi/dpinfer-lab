@@ -1,0 +1,22 @@
+# Model weights and datasets (large / separately licensed)
+models/
+data/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.gguf
+
+# Bulky run artifacts; keep the folders
+logs/*
+!logs/.gitkeep
+profiles/*
+!profiles/.gitkeep
+traces/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
