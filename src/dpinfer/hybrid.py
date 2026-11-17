@@ -104,16 +104,72 @@ class HybridLayer(DynamicLayer):
         return 0 if self.length == 0 else 2 * self.k_buf.numel() * self.k_buf.element_size()
 
 
+class Prefetcher:
+    """Layer-wise async H2D prefetch for `offload`: a dedicated copy stream and two GPU staging
+    slots. While layer l computes on slot l%2, layer l+1's cold KV is copied into the other slot;
+    after the last layer it prefetches layer 0 for the next token."""
+
+    def __init__(self, layers):
+        self.layers = layers
+        self.stream = torch.cuda.Stream()
+        self.slots = None
+        self.ready = [torch.cuda.Event() for _ in range(2)]
+        self.free = [torch.cuda.Event() for _ in range(2)]
+        self.issued = None  # layer index whose copy is in flight / done in its slot
+
+    def _alloc(self):
+        l0 = self.layers[0]
+        shape = (1,) + tuple(l0.k_cold.shape)
+        dev = l0.device
+        self.slots = [(torch.empty(shape, dtype=l0.k_cold.dtype, device=dev),
+                       torch.empty(shape, dtype=l0.v_cold.dtype, device=dev)) for _ in range(2)]
+        self.issued = set()
+
+    def _issue(self, idx):
+        s = idx % 2
+        layer = self.layers[idx]
+        self.stream.wait_event(self.free[s])           # slot's previous user has finished
+        with torch.cuda.stream(self.stream):
+            self.slots[s][0][0].copy_(layer.k_cold, non_blocking=True)
+            self.slots[s][1][0].copy_(layer.v_cold, non_blocking=True)
+            self.ready[s].record(self.stream)
+        STATS["h2d_bytes"] += layer.k_cold.nbytes + layer.v_cold.nbytes
+        self.issued.add(idx)
+
+    def get(self, idx):
+        if self.slots is None:
+            self._alloc()
+        if idx not in self.issued:
+            self._issue(idx)
+        torch.cuda.current_stream().wait_event(self.ready[idx % 2])
+        self.issued.discard(idx)
+        return idx % 2
+
+    def release_and_prefetch_next(self, idx):
+        s = idx % 2
+        self.free[s].record(torch.cuda.current_stream())
+        nxt = (idx + 1) % len(self.layers)
+        if nxt not in self.issued:
+            self._issue(nxt)
+
+    def bytes(self):
+        return 0 if self.slots is None else sum(t.nbytes for sl in self.slots for t in sl)
+
+
 class HybridCache(Cache):
-    def __init__(self, config, mode="hybrid", budget=4096, sink=64, reserve=512, cpu_dtype=torch.float32):
+    def __init__(self, config, mode="hybrid", budget=4096, sink=64, reserve=512, cpu_dtype=torch.float32,
+                 prefetch=True):
         assert mode in MODES
         n = config.get_text_config(decoder=True).num_hidden_layers
         super().__init__(layers=[HybridLayer(mode, budget, sink, reserve, cpu_dtype) for _ in range(n)])
         self.mode = mode
+        self.prefetcher = Prefetcher(self.layers) if (mode == "offload" and prefetch) else None
         _ACTIVE["cache"] = self
 
     def gpu_kv_bytes(self):
-        return sum(l.gpu_kv_bytes() for l in self.layers)
+        """Resident KV plus offload staging buffers."""
+        return sum(l.gpu_kv_bytes() for l in self.layers) + (
+            self.prefetcher.bytes() if self.prefetcher else 0)
 
     def cold_tokens(self):
         return self.layers[0].n_cold
@@ -160,9 +216,17 @@ def hybrid_attention(module, query, key, value, attention_mask, scaling=None, dr
         o_c = o_c.to(query.device, non_blocking=True)[None]
         lse_c = lse_c.to(query.device, non_blocking=True)[None]
         out = _fuse(o_g, lse_g, o_c, lse_c)
-    elif cache.mode == "offload":
-        kc = layer.k_cold.to(query.device, dtype=query.dtype, non_blocking=True)[None]
-        vc = layer.v_cold.to(query.device, dtype=query.dtype, non_blocking=True)[None]
+    elif cache.mode == "offload" and cache.prefetcher is not None:
+        pf, idx = cache.prefetcher, module.layer_idx
+        o_g, lse_g = _flash_lse(qp, key, value, scale)
+        s = pf.get(idx)
+        kc, vc = pf.slots[s]
+        o_c, lse_c = _flash_lse(qp, kc, vc, scale)
+        pf.release_and_prefetch_next(idx)
+        out = _fuse(o_g, lse_g, o_c, lse_c)
+    elif cache.mode == "offload":                   # synchronous copy, no prefetch
+        kc = layer.k_cold.to(query.device, non_blocking=True)[None]
+        vc = layer.v_cold.to(query.device, non_blocking=True)[None]
         STATS["h2d_bytes"] += layer.k_cold.nbytes + layer.v_cold.nbytes
         o_g, lse_g = _flash_lse(qp, key, value, scale)
         o_c, lse_c = _flash_lse(qp, kc, vc, scale)

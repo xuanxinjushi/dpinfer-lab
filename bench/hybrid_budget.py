@@ -34,7 +34,8 @@ def main():
     ap.add_argument("--lengths", nargs="+", type=int, default=[8192, 32768])
     ap.add_argument("--fracs", nargs="+", type=float, default=[0.5, 0.25, 0.1],
                     help="GPU KV budget as a fraction of the prompt length")
-    ap.add_argument("--modes", nargs="+", default=["hybrid", "offload", "drop"])
+    ap.add_argument("--modes", nargs="+", default=["hybrid", "offload", "offload_sync", "drop"],
+                    help="offload = bf16 H2D with layer-wise async prefetch; offload_sync = no prefetch")
     ap.add_argument("--sink", type=int, default=64)
     ap.add_argument("--cpu-dtype", default="float32", choices=["float32", "bfloat16", "float16"])
     ap.add_argument("--threads", type=int, default=8)
@@ -69,8 +70,10 @@ def main():
                 holder = {}
 
                 def factory(n_in, steps, mode=mode, budget=budget):
-                    holder["c"] = hybrid.HybridCache(model.config, mode=mode, budget=budget, sink=args.sink,
-                                                     reserve=steps + 8, cpu_dtype=cpu_dtype)
+                    holder["c"] = hybrid.HybridCache(
+                        model.config, mode="offload" if mode == "offload_sync" else mode, budget=budget,
+                        sink=args.sink, reserve=steps + 8, cpu_dtype=cpu_dtype,
+                        prefetch=mode != "offload_sync")
                     return holder["c"]
 
                 torch.cuda.empty_cache()
@@ -79,7 +82,8 @@ def main():
                 runs, toks = [], None
                 for r in range(args.runs):
                     hybrid.STATS.update(cpu_ms=0.0, h2d_bytes=0)
-                    p, d, t = run_once(model, ids, args.decode_steps, factory)
+                    p, d, t = run_once(model, ids, args.decode_steps, factory,
+                                       on_prefill=torch.cuda.reset_peak_memory_stats)
                     runs.append({"prefill_ms": p, "decode_ms": [round(x, 4) for x in d],
                                  "cpu_ms_total": hybrid.STATS["cpu_ms"],
                                  "h2d_bytes": hybrid.STATS["h2d_bytes"]})
@@ -97,7 +101,7 @@ def main():
                     "gpu_kv_gib": c.gpu_kv_bytes() / 2**30,
                     "host_kv_gib": sum((l.k_cold.nbytes + l.v_cold.nbytes) if l.k_cold is not None else 0
                                        for l in c.layers) / 2**30,
-                    "peak_vram_gib": torch.cuda.max_memory_allocated() / 2**30,
+                    "decode_peak_vram_gib": torch.cuda.max_memory_allocated() / 2**30,
                     "decode_ms_median": statistics.median(all_d), "decode_ms_p90": pct(all_d, 90),
                     "cpu_ms_per_step": statistics.median(r["cpu_ms_total"] for r in runs) / args.decode_steps,
                     "h2d_gb_per_step": statistics.median(r["h2d_bytes"] for r in runs) / args.decode_steps / 1e9,
