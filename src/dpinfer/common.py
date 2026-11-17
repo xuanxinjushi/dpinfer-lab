@@ -1,10 +1,13 @@
 """Shared setup for the HF transformers baseline scripts."""
+import os
 from pathlib import Path
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL_PATH = Path("~/dpinfer-lab/models/Qwen3-4B").expanduser()
+# <repo>/models/Qwen3-4B unless overridden with DPINFER_MODEL=/path/to/Qwen3-4B
+MODEL_PATH = Path(os.environ.get("DPINFER_MODEL",
+                                 Path(__file__).resolve().parents[2] / "models/Qwen3-4B")).expanduser()
 DEFAULT_PROMPT = "Write a C++17 implementation of binary search."
 
 

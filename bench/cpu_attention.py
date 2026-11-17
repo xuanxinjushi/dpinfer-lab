@@ -4,8 +4,11 @@ Measures, on this machine:
   1) host DRAM read / copy bandwidth vs CPU threads (torch, large buffers >> LLC);
   2) PCIe host->GPU bandwidth from pinned memory (one layer of KV and a full-cache equivalent);
   3) CPU decode attention for Qwen3-4B shapes (36 layers, 32 Q / 8 KV heads, d=128, GQA),
-     one query token over L cached tokens, bf16 / fp16 / fp32 KV, checked against GPU SDPA;
-  4) the same attention on GPU (flash SDPA) for reference.
+     one query token over L cached tokens, PyTorch ops (fp32 by default; bf16/fp16 are very
+     slow in PyTorch on x86), checked against GPU SDPA;
+  4) the AVX2 bf16 kernel (src/dpinfer/csrc/cpu_attn.cpp) on the same shapes — the CPU path
+     hybrid attention actually uses;
+  5) the same attention on GPU (flash SDPA) for reference.
 
 Usage: bench/cpu_attention.py --out results/gate_b/<date>/cpu_attention.json
 """
@@ -18,8 +21,12 @@ import statistics
 import time
 from pathlib import Path
 
+import sys
+
 import torch
 import torch.nn.functional as F
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 LAYERS, HQ, HKV, D = 36, 32, 8, 128
 G = HQ // HKV
@@ -112,6 +119,30 @@ def attention_bench(lengths, dtypes, threads, reps):
     return rows
 
 
+def kernel_bench(lengths, threads, reps):
+    """AVX2 bf16 kernel (what hybrid uses), all 36 layers, checked against fp32 PyTorch."""
+    from dpinfer.cpu_kernel import gqa_decode
+    from dpinfer.hybrid import cpu_partial
+    rows = []
+    g = torch.Generator().manual_seed(0)
+    scale = 1 / math.sqrt(D)
+    for L in lengths:
+        ks = [torch.randn(HKV, L, D, generator=g).bfloat16() for _ in range(LAYERS)]
+        vs = [torch.randn(HKV, L, D, generator=g).bfloat16() for _ in range(LAYERS)]
+        q = torch.randn(HKV, G, D, generator=g)
+        ref, _ = cpu_partial(q, ks[0].float(), vs[0].float(), scale)
+        err = (gqa_decode(q, ks[0], vs[0], scale, max(threads))[0] - ref).abs().max().item()
+        kv_bytes = 2 * LAYERS * HKV * L * D * 2
+        for t in threads:
+            sec = timeit(lambda: [gqa_decode(q, ks[i], vs[i], scale, t) for i in range(LAYERS)], reps)
+            rows.append({"dtype": "bfloat16", "ctx": L, "threads": t, "kv_bytes": kv_bytes,
+                         "ms_all_layers": sec * 1e3, "eff_gbs": kv_bytes / sec / 1e9, "max_abs_err": err})
+            print(f"  kernel bf16 L={L:6d} thr={t:2d}: {sec*1e3:8.2f} ms / 36 layers  "
+                  f"({kv_bytes/sec/1e9:6.1f} GB/s eff, err {err:.1e})", flush=True)
+        del ks, vs
+    return rows
+
+
 @torch.inference_mode()
 def gpu_attention(lengths):
     rows = []
@@ -142,7 +173,9 @@ def gpu_attention(lengths):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lengths", nargs="+", type=int, default=[1024, 4096, 8192, 16384, 32768])
-    ap.add_argument("--dtypes", nargs="+", default=["bfloat16", "float16", "float32"])
+    ap.add_argument("--dtypes", nargs="+", default=["float32"],
+                    help="PyTorch CPU attention dtypes (bfloat16/float16 take seconds per call at 32K)")
+    ap.add_argument("--no-kernel", action="store_true", help="skip the AVX2 bf16 kernel benchmark")
     ap.add_argument("--threads", nargs="+", type=int, default=[1, 4, 8, 16, 24])
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--out", type=Path, required=True)
@@ -166,6 +199,10 @@ def main():
     for dt in args.dtypes:
         res["cpu_attention"] += attention_bench(args.lengths, [dt], args.threads, args.reps)
         args.out.write_text(json.dumps(res, indent=1))
+    if not args.no_kernel:
+        print("cpu kernel (AVX2 bf16):", flush=True)
+        res["cpu_kernel"] = kernel_bench(args.lengths, args.threads, args.reps)
+    res["env"]["argv"] = sys.argv
     args.out.write_text(json.dumps(res, indent=1))
     print("wrote", args.out)
 

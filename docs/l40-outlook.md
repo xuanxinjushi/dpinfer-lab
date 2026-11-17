@@ -46,6 +46,9 @@ because of lower memory bandwidth.
 
 ## What to run on the L40 (in order)
 
+Full commands: [l40-runbook.md](l40-runbook.md).
+
+
 1. Copy the repo (git), `models/Qwen3-4B`, and `data/repoqa_release/` to the server.
 2. `bench/cpu_attention.py` with `--threads 8 16 32 64`, once per NUMA node
    (`numactl --cpunodebind=N --membind=N`) and once across both — this answers Gate B for that machine.

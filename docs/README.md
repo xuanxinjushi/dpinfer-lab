@@ -11,6 +11,7 @@ what we are testing, why, and how the code does it.
 | [gate-c-criteria.md](gate-c-criteria.md) | Pre-registered pass/fail thresholds for Gate C (attention locality), fixed before E1 |
 | [review-gemini.md](review-gemini.md) | External review of the first results (fp32 offload strawman, CPU vs GPU page cache, hygiene) |
 | [l40-outlook.md](l40-outlook.md) | What these results mean for the L40 server and what to run there |
+| [l40-runbook.md](l40-runbook.md) | Step-by-step commands for running the experiments on the L40 server |
 
 Conventions:
 
