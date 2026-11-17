@@ -1,0 +1,612 @@
+{
+ "env": {
+  "cpu": "x86_64",
+  "logical_cpus": 32,
+  "torch": "2.14.1+cu130",
+  "cpu_capability": "AVX2",
+  "omp_num_threads_env": "4"
+ },
+ "host_bandwidth": [
+  {
+   "threads": 4,
+   "read_gbs": 56.214775975027884,
+   "copy_gbs": 57.464899021266284
+  },
+  {
+   "threads": 8,
+   "read_gbs": 70.86970204550127,
+   "copy_gbs": 63.35390011775998
+  },
+  {
+   "threads": 16,
+   "read_gbs": 66.74878556679221,
+   "copy_gbs": 52.198037147766335
+  },
+  {
+   "threads": 24,
+   "read_gbs": 68.18478797310976,
+   "copy_gbs": 43.969226999636355
+  }
+ ],
+ "pcie": {
+  "one_layer_32k_kv": {
+   "bytes": 134217728,
+   "h2d_gbs": 23.97818164696961,
+   "d2h_gbs": 26.207714949824155
+  },
+  "1_gib": {
+   "bytes": 1073741824,
+   "h2d_gbs": 23.99568412467438,
+   "d2h_gbs": 26.303700611722526
+  }
+ },
+ "gpu_attention": [
+  {
+   "ctx": 1024,
+   "ms_all_layers": 0.46111999452114105,
+   "eff_gbs": 327.4526062501445
+  },
+  {
+   "ctx": 4096,
+   "ms_all_layers": 1.0417119860649109,
+   "eff_gbs": 579.7953600222519
+  },
+  {
+   "ctx": 8192,
+   "ms_all_layers": 1.6788960099220276,
+   "eff_gbs": 719.4963504952881
+  },
+  {
+   "ctx": 16384,
+   "ms_all_layers": 2.9486080408096313,
+   "eff_gbs": 819.342235577922
+  },
+  {
+   "ctx": 32768,
+   "ms_all_layers": 5.637631893157959,
+   "eff_gbs": 857.0687656751942
+  }
+ ],
+ "cpu_attention": [
+  {
+   "dtype": "bfloat16",
+   "ctx": 1024,
+   "threads": 4,
+   "kv_bytes": 150994944,
+   "ms_all_layers": 76.33481197990477,
+   "eff_gbs": 1.9780613861962428,
+   "max_abs_err_vs_gpu": 0.001320086419582367
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 1024,
+   "threads": 8,
+   "kv_bytes": 150994944,
+   "ms_all_layers": 73.06564398459159,
+   "eff_gbs": 2.066565567147297,
+   "max_abs_err_vs_gpu": 0.001320086419582367
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 1024,
+   "threads": 16,
+   "kv_bytes": 150994944,
+   "ms_all_layers": 75.95811499049887,
+   "eff_gbs": 1.9878711315951827,
+   "max_abs_err_vs_gpu": 0.001320086419582367
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 1024,
+   "threads": 24,
+   "kv_bytes": 150994944,
+   "ms_all_layers": 79.15522801340558,
+   "eff_gbs": 1.90758017871451,
+   "max_abs_err_vs_gpu": 0.001320086419582367
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 4096,
+   "threads": 4,
+   "kv_bytes": 603979776,
+   "ms_all_layers": 306.50025699287653,
+   "eff_gbs": 1.9705685793732868,
+   "max_abs_err_vs_gpu": 0.0006165541708469391
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 4096,
+   "threads": 8,
+   "kv_bytes": 603979776,
+   "ms_all_layers": 299.552649987163,
+   "eff_gbs": 2.0162725184567147,
+   "max_abs_err_vs_gpu": 0.0006165541708469391
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 4096,
+   "threads": 16,
+   "kv_bytes": 603979776,
+   "ms_all_layers": 311.25599198276177,
+   "eff_gbs": 1.9404599158156932,
+   "max_abs_err_vs_gpu": 0.0006165541708469391
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 4096,
+   "threads": 24,
+   "kv_bytes": 603979776,
+   "ms_all_layers": 313.96062299609184,
+   "eff_gbs": 1.9237437174008865,
+   "max_abs_err_vs_gpu": 0.0006165541708469391
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 8192,
+   "threads": 4,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 1195.5146419932134,
+   "eff_gbs": 1.010409667577168,
+   "max_abs_err_vs_gpu": 0.00038259802386164665
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 8192,
+   "threads": 8,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 1187.8536880249158,
+   "eff_gbs": 1.0169262125274998,
+   "max_abs_err_vs_gpu": 0.00038259802386164665
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 8192,
+   "threads": 16,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 1191.9684640015475,
+   "eff_gbs": 1.013415697211291,
+   "max_abs_err_vs_gpu": 0.00038259802386164665
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 8192,
+   "threads": 24,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 1202.303789992584,
+   "eff_gbs": 1.0047041039498437,
+   "max_abs_err_vs_gpu": 0.00038259802386164665
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 16384,
+   "threads": 4,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 4079.811030998826,
+   "eff_gbs": 0.5921644619428685,
+   "max_abs_err_vs_gpu": 0.00030898628756403923
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 16384,
+   "threads": 8,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 4151.462226000149,
+   "eff_gbs": 0.581944137385947,
+   "max_abs_err_vs_gpu": 0.00030898628756403923
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 16384,
+   "threads": 16,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 4089.1582449839916,
+   "eff_gbs": 0.5908108611261285,
+   "max_abs_err_vs_gpu": 0.00030898628756403923
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 16384,
+   "threads": 24,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 4136.161578004248,
+   "eff_gbs": 0.5840968875219116,
+   "max_abs_err_vs_gpu": 0.00030898628756403923
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 32768,
+   "threads": 4,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 8620.171871996718,
+   "eff_gbs": 0.5605268989701462,
+   "max_abs_err_vs_gpu": 0.00023339781910181046
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 32768,
+   "threads": 8,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 8625.874768011272,
+   "eff_gbs": 0.5601563131798166,
+   "max_abs_err_vs_gpu": 0.00023339781910181046
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 32768,
+   "threads": 16,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 8533.272745989962,
+   "eff_gbs": 0.5662350603138314,
+   "max_abs_err_vs_gpu": 0.00023339781910181046
+  },
+  {
+   "dtype": "bfloat16",
+   "ctx": 32768,
+   "threads": 24,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 8546.53353401227,
+   "eff_gbs": 0.5653564908826418,
+   "max_abs_err_vs_gpu": 0.00023339781910181046
+  },
+  {
+   "dtype": "float16",
+   "ctx": 1024,
+   "threads": 4,
+   "kv_bytes": 150994944,
+   "ms_all_layers": 82.72860600845888,
+   "eff_gbs": 1.8251841930536212,
+   "max_abs_err_vs_gpu": 0.0001803915947675705
+  },
+  {
+   "dtype": "float16",
+   "ctx": 1024,
+   "threads": 8,
+   "kv_bytes": 150994944,
+   "ms_all_layers": 81.47834398550913,
+   "eff_gbs": 1.853191125568953,
+   "max_abs_err_vs_gpu": 0.0001803915947675705
+  },
+  {
+   "dtype": "float16",
+   "ctx": 1024,
+   "threads": 16,
+   "kv_bytes": 150994944,
+   "ms_all_layers": 84.97039999929257,
+   "eff_gbs": 1.7770299304376245,
+   "max_abs_err_vs_gpu": 0.0001803915947675705
+  },
+  {
+   "dtype": "float16",
+   "ctx": 1024,
+   "threads": 24,
+   "kv_bytes": 150994944,
+   "ms_all_layers": 86.73635000013746,
+   "eff_gbs": 1.7408496437740428,
+   "max_abs_err_vs_gpu": 0.0001803915947675705
+  },
+  {
+   "dtype": "float16",
+   "ctx": 4096,
+   "threads": 4,
+   "kv_bytes": 603979776,
+   "ms_all_layers": 339.19057800085284,
+   "eff_gbs": 1.780650216051937,
+   "max_abs_err_vs_gpu": 0.0001057945191860199
+  },
+  {
+   "dtype": "float16",
+   "ctx": 4096,
+   "threads": 8,
+   "kv_bytes": 603979776,
+   "ms_all_layers": 333.834866003599,
+   "eff_gbs": 1.8092171834247193,
+   "max_abs_err_vs_gpu": 0.0001057945191860199
+  },
+  {
+   "dtype": "float16",
+   "ctx": 4096,
+   "threads": 16,
+   "kv_bytes": 603979776,
+   "ms_all_layers": 344.80880401679315,
+   "eff_gbs": 1.751636759166348,
+   "max_abs_err_vs_gpu": 0.0001057945191860199
+  },
+  {
+   "dtype": "float16",
+   "ctx": 4096,
+   "threads": 24,
+   "kv_bytes": 603979776,
+   "ms_all_layers": 353.39385899715126,
+   "eff_gbs": 1.7090839600720644,
+   "max_abs_err_vs_gpu": 0.0001057945191860199
+  },
+  {
+   "dtype": "float16",
+   "ctx": 8192,
+   "threads": 4,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 1289.0432200219948,
+   "eff_gbs": 0.9370977894592152,
+   "max_abs_err_vs_gpu": 5.6765973567962646e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 8192,
+   "threads": 8,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 1281.472308008233,
+   "eff_gbs": 0.9426341439071029,
+   "max_abs_err_vs_gpu": 5.6765973567962646e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 8192,
+   "threads": 16,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 1261.7527239781339,
+   "eff_gbs": 0.9573663119913612,
+   "max_abs_err_vs_gpu": 5.6765973567962646e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 8192,
+   "threads": 24,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 1284.4734890095424,
+   "eff_gbs": 0.9404316728494394,
+   "max_abs_err_vs_gpu": 5.6765973567962646e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 16384,
+   "threads": 4,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 4115.640721021919,
+   "eff_gbs": 0.5870092332549679,
+   "max_abs_err_vs_gpu": 4.2790547013282776e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 16384,
+   "threads": 8,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 4207.83502800623,
+   "eff_gbs": 0.5741477714597378,
+   "max_abs_err_vs_gpu": 4.2790547013282776e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 16384,
+   "threads": 16,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 4192.178759985836,
+   "eff_gbs": 0.5762920052598527,
+   "max_abs_err_vs_gpu": 4.2790547013282776e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 16384,
+   "threads": 24,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 4177.203485975042,
+   "eff_gbs": 0.5783580120316012,
+   "max_abs_err_vs_gpu": 4.2790547013282776e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 32768,
+   "threads": 4,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 9333.737623994239,
+   "eff_gbs": 0.5176745268239374,
+   "max_abs_err_vs_gpu": 2.8319773264229298e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 32768,
+   "threads": 8,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 9390.084077982465,
+   "eff_gbs": 0.5145681516664502,
+   "max_abs_err_vs_gpu": 2.8319773264229298e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 32768,
+   "threads": 16,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 9379.432982997969,
+   "eff_gbs": 0.5151524848846021,
+   "max_abs_err_vs_gpu": 2.8319773264229298e-05
+  },
+  {
+   "dtype": "float16",
+   "ctx": 32768,
+   "threads": 24,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 9405.16344900243,
+   "eff_gbs": 0.5137431405843877,
+   "max_abs_err_vs_gpu": 2.8319773264229298e-05
+  },
+  {
+   "dtype": "float32",
+   "ctx": 1024,
+   "threads": 4,
+   "kv_bytes": 301989888,
+   "ms_all_layers": 7.860403013182804,
+   "eff_gbs": 38.41913544299549,
+   "max_abs_err_vs_gpu": 2.2351741790771484e-07
+  },
+  {
+   "dtype": "float32",
+   "ctx": 1024,
+   "threads": 8,
+   "kv_bytes": 301989888,
+   "ms_all_layers": 5.945951008470729,
+   "eff_gbs": 50.789165193217826,
+   "max_abs_err_vs_gpu": 2.2351741790771484e-07
+  },
+  {
+   "dtype": "float32",
+   "ctx": 1024,
+   "threads": 16,
+   "kv_bytes": 301989888,
+   "ms_all_layers": 6.3177009869832546,
+   "eff_gbs": 47.800598449057375,
+   "max_abs_err_vs_gpu": 2.2351741790771484e-07
+  },
+  {
+   "dtype": "float32",
+   "ctx": 1024,
+   "threads": 24,
+   "kv_bytes": 301989888,
+   "ms_all_layers": 7.535903016105294,
+   "eff_gbs": 40.07348387507174,
+   "max_abs_err_vs_gpu": 2.2351741790771484e-07
+  },
+  {
+   "dtype": "float32",
+   "ctx": 4096,
+   "threads": 4,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 28.88033798080869,
+   "eff_gbs": 41.82636480233378,
+   "max_abs_err_vs_gpu": 1.4528632164001465e-07
+  },
+  {
+   "dtype": "float32",
+   "ctx": 4096,
+   "threads": 8,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 28.92729200539179,
+   "eff_gbs": 41.7584733398082,
+   "max_abs_err_vs_gpu": 1.4528632164001465e-07
+  },
+  {
+   "dtype": "float32",
+   "ctx": 4096,
+   "threads": 16,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 20.828266016906127,
+   "eff_gbs": 57.996164972134956,
+   "max_abs_err_vs_gpu": 1.4528632164001465e-07
+  },
+  {
+   "dtype": "float32",
+   "ctx": 4096,
+   "threads": 24,
+   "kv_bytes": 1207959552,
+   "ms_all_layers": 20.33453999320045,
+   "eff_gbs": 59.4043215338986,
+   "max_abs_err_vs_gpu": 1.4528632164001465e-07
+  },
+  {
+   "dtype": "float32",
+   "ctx": 8192,
+   "threads": 4,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 57.00863100355491,
+   "eff_gbs": 42.378128740705066,
+   "max_abs_err_vs_gpu": 7.82310962677002e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 8192,
+   "threads": 8,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 44.602705020224676,
+   "eff_gbs": 54.16530461335303,
+   "max_abs_err_vs_gpu": 7.82310962677002e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 8192,
+   "threads": 16,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 41.55936898314394,
+   "eff_gbs": 58.131756162608546,
+   "max_abs_err_vs_gpu": 7.82310962677002e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 8192,
+   "threads": 24,
+   "kv_bytes": 2415919104,
+   "ms_all_layers": 39.41014999873005,
+   "eff_gbs": 61.3019515043168,
+   "max_abs_err_vs_gpu": 7.82310962677002e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 16384,
+   "threads": 4,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 116.96726299123839,
+   "eff_gbs": 41.30932095386327,
+   "max_abs_err_vs_gpu": 8.940696716308594e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 16384,
+   "threads": 8,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 92.00511302333325,
+   "eff_gbs": 52.51706181562547,
+   "max_abs_err_vs_gpu": 8.940696716308594e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 16384,
+   "threads": 16,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 82.71089001209475,
+   "eff_gbs": 58.41840424269941,
+   "max_abs_err_vs_gpu": 8.940696716308594e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 16384,
+   "threads": 24,
+   "kv_bytes": 4831838208,
+   "ms_all_layers": 81.73434500349686,
+   "eff_gbs": 59.116375225044976,
+   "max_abs_err_vs_gpu": 8.940696716308594e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 32768,
+   "threads": 4,
+   "kv_bytes": 9663676416,
+   "ms_all_layers": 224.69736900529824,
+   "eff_gbs": 43.007519219204276,
+   "max_abs_err_vs_gpu": 7.636845111846924e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 32768,
+   "threads": 8,
+   "kv_bytes": 9663676416,
+   "ms_all_layers": 176.83742300141603,
+   "eff_gbs": 54.64723615613092,
+   "max_abs_err_vs_gpu": 7.636845111846924e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 32768,
+   "threads": 16,
+   "kv_bytes": 9663676416,
+   "ms_all_layers": 174.49256099644117,
+   "eff_gbs": 55.381595414815955,
+   "max_abs_err_vs_gpu": 7.636845111846924e-08
+  },
+  {
+   "dtype": "float32",
+   "ctx": 32768,
+   "threads": 24,
+   "kv_bytes": 9663676416,
+   "ms_all_layers": 169.03244899003766,
+   "eff_gbs": 57.17054017580702,
+   "max_abs_err_vs_gpu": 7.636845111846924e-08
+  }
+ ]
+}

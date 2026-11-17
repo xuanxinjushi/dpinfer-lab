@@ -313,7 +313,11 @@ but **only a measured runtime** can establish actual overlap and critical-path l
 
 - **Gate A — correctness:** exact split attention matches a trusted reference within a stated numeric tolerance, using identical masks, scales, positions and head mapping.
 - **Gate B — CPU/GPU crossover:** a measurable region exists where CPU-compute-plus-small-result-transfer is competitive with transferring KV to the GPU.
-- **Gate C — locality:** real code prompts show strong enough page concentration and temporal reuse to justify sparse/priority placement.
+- **Gate C — locality:** real code prompts show strong enough page concentration and temporal reuse to justify sparse/priority placement. Pre-registered pass criteria (fixed before running E1; full definitions in `docs/gate-c-criteria.md`), at page size 128 on correctly answered 8K–32K RepoQA prompts:
+  - **C1 concentration:** in ≥ 90% of (layer, KV head, decode step) cases, the top 10% of cold pages hold ≥ 90% of the cold attention mass.
+  - **C2 temporal reuse:** mean overlap of the top-10% page sets between adjacent decode steps ≥ 80%.
+  - **C3 end-to-end:** attending to sink + recent + top-10% cold pages (oracle selection) gives greedy output identical to `full` on ≥ 90% of prompts and the same needle-retrieval result on all of them.
+  - Results are always reported separately for correctly and incorrectly answered prompts.
 - **Gate D — practical advantage:** optimizations improve *end-to-end* decode latency or fit otherwise infeasible contexts at an explicit memory budget.
 - **Gate E — model quality:** any sparsification, compression or fine-tuning is evaluated independently on held-out coding tasks.
 

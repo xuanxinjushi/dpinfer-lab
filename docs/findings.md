@@ -2,6 +2,32 @@
 
 Newest first. Each entry says what was measured, where the data is, and what it changes.
 
+## 2026-11-17 — Gate B microbenchmarks (RTX 4090 desktop, i9-13900KF, measured)
+
+`bench/cpu_attention.py`; data `results/gate_b/2026-11-17/cpu_attention.json`,
+log `logs/cpu_attention_2026-11-17.log`. Qwen3-4B shapes, one decode query, all 36 layers.
+
+| | Bandwidth |
+|---|---:|
+| Host DRAM read (torch `sum`, 8 threads) | 70.9 GB/s (4 thr 56, 16 thr 67, 24 thr 68) |
+| PCIe H2D / D2H, pinned | 24.0 / 26.3 GB/s |
+| GPU flash decode attention at 32K | 857 GB/s (5.6 ms / 36 layers) |
+| CPU attention, fp32 KV, 32K, 24 thr | 57 GB/s (169 ms / 36 layers) |
+| CPU attention, bf16 / fp16 KV (PyTorch) | 0.5–2 GB/s (8.6–9.4 s at 32K) |
+
+- fp32 CPU attention reaches ~80–85% of host read bandwidth, but per *bf16-equivalent* KV byte
+  that is only ~29 GB/s — about the same as PCIe (24 GB/s). So, with PyTorch kernels, computing on
+  the CPU and shipping KV over PCIe are roughly tied on this desktop.
+- PyTorch's bf16/fp16 CPU matmul for these shapes is pathological (25–80× slower than fp32, and
+  getting worse with length). This is an implementation gap, not a hardware limit: bf16→fp32 is a
+  shift and fp16→fp32 has F16C on AVX2. A bandwidth-bound bf16 kernel would read ~60–70 GB/s of
+  bf16 KV, ~2.5–3× PCIe.
+- Dense CPU attention over a full 32K cache is 30× slower than the GPU (169 vs 5.6 ms); the CPU
+  path only makes sense for the part of KV that does not fit on the GPU.
+- Numerics vs GPU fp32 reference: fp32 max abs error ~1e-7; bf16 ~1e-3.
+
+Gate B status on this machine: **open**; it depends on a bandwidth-bound low-precision CPU kernel.
+
 ## 2026-11-17 — Gate A passed end-to-end; first KV-budget curve (RTX 4090 desktop, measured)
 
 `bench/hybrid_budget.py`, `psf/black` needle 0, 64 greedy decode steps, 2 runs, 8 CPU threads,
@@ -21,9 +47,13 @@ Decode ms/token (median).
 - **Exactness:** `hybrid` and `offload` generate tokens identical to `full` in all 12
   configurations (Gate A on the real model). `drop` diverges from `full` within 3–8 tokens, and at
   8K with a 25% or 10% budget it loses the needle that `full`/`hybrid` find.
-- **hybrid ≈ 2× faster than offload** at every budget. Both are bandwidth-bound: the CPU path
-  reads cold KV at **~50 GB/s** (the desktop's dual-channel DRAM limit, measured from CPU time),
-  offload moves it at ~22 GB/s over PCIe.
+- ~~hybrid ≈ 2× faster than offload~~ **Retracted (review, `docs/review-gemini.md`):** offload in
+  this run shipped fp32 KV, twice the bytes a real system moves. With bf16 transfer at the measured
+  24 GB/s H2D, offload at 32K/50% would be ~100 ms of copy + ~19 ms compute ≈ hybrid's 116 ms, i.e.
+  roughly a tie. The CPU path reads fp32 cold KV at ~50 GB/s, which is only ~25 GB/s of
+  bf16-equivalent KV. PyTorch CPU attention in bf16/fp16 is far slower (0.6–2 GB/s,
+  `logs/cpu_attention_2026-11-17.log`), so a bandwidth-bound low-precision CPU kernel is needed
+  before hybrid can beat offload here. Re-run pending with bf16 offload + layer prefetch.
 - **hybrid is 3–10× slower than full** on this desktop. Almost all of the gap is CPU attention
   time (e.g. 32K/10%: 173 ms CPU of 193 ms); the per-layer GPU↔CPU sync costs only ~1–2 ms/token.
 - GPU memory saved: KV 4.51 → 0.46 GiB at 32K/10%; peak VRAM 14.4 → 10.4 GiB (peak still
@@ -32,8 +62,9 @@ Decode ms/token (median).
   Next run: bf16 host KV for `offload` (halves PCIe bytes), and bf16/fp16 for `hybrid` if the
   CPU kernel stays bandwidth-bound (`bench/cpu_attention.py`).
 
-Consequence: the CPU/GPU crossover (Gate B) holds on this machine: computing on the host beats
-shipping KV. Matching `full` needs either much more host bandwidth (L40 server, see
+Consequence (revised): Gate B is **not yet established** on this machine. Raw host DRAM read
+(~70 GB/s) is ~3× PCIe (24 GB/s), so a bandwidth-bound bf16 CPU kernel could win, but the current
+PyTorch path does not reach it. Matching `full` needs either much more host bandwidth (L40 server, see
 `l40-outlook.md`) or reading far less cold KV per step (sparse selection, Gate C).
 
 ## 2026-11-17 — Copy-free KV cache removes the HF long-context artifact (RTX 4090, measured)

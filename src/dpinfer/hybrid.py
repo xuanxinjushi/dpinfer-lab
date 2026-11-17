@@ -70,8 +70,11 @@ class HybridLayer(DynamicLayer):
             if not keep_all:
                 lo, hi = self.sink, n - (self.budget - self.sink)
                 pin = self.mode == "offload"           # pinned only where async H2D needs it
-                self.k_cold = _to_host(key_states[0, :, lo:hi], self.cpu_dtype, pin)
-                self.v_cold = _to_host(value_states[0, :, lo:hi], self.cpu_dtype, pin)
+                # offload ships KV in the model dtype (what a real system would transfer);
+                # cpu_dtype only applies to the CPU-attention path.
+                dt = self.dtype if self.mode == "offload" else self.cpu_dtype
+                self.k_cold = _to_host(key_states[0, :, lo:hi], dt, pin)
+                self.v_cold = _to_host(value_states[0, :, lo:hi], dt, pin)
             self.length = n
             self.keys, self.values = self.k_buf[:, :, :self.n_hot], self.v_buf[:, :, :self.n_hot]
             return key_states, value_states            # prefill attends over the full prompt

@@ -8,6 +8,8 @@ what we are testing, why, and how the code does it.
 | [findings.md](findings.md) | Running log of what has been established so far, with pointers to raw data |
 | [kv-budget-experiment.md](kv-budget-experiment.md) | The main experiment: decode under an artificial GPU KV budget, methods compared, metrics, what counts as a win |
 | [hybrid-attention-implementation.md](hybrid-attention-implementation.md) | How `HybridCache` / hybrid attention plug into HF transformers, exactness argument, limitations |
+| [gate-c-criteria.md](gate-c-criteria.md) | Pre-registered pass/fail thresholds for Gate C (attention locality), fixed before E1 |
+| [review-gemini.md](review-gemini.md) | External review of the first results (fp32 offload strawman, CPU vs GPU page cache, hygiene) |
 | [l40-outlook.md](l40-outlook.md) | What these results mean for the L40 server and what to run there |
 
 Conventions:
