@@ -43,7 +43,8 @@ Consequences, per the plan fixed in `gate-c-criteria.md`:
 2. CPU-side compute over the full cold region remains the relevant path; a GPU hot-page cache
    is not supported by the data (C2), which answers review point 2 for this setting.
 3. Open, not claimed: a **layer-heterogeneous** policy (exact/dense for layers 0–22, sparse
-   only for late layers) — a new hypothesis that would need its own pre-registered test.
+   only for late layers) — a new hypothesis, pre-registered in `gate-c-layer-split.md` (E2,
+   held-out repos) before any test.
 4. Retrieval at 32K is better than the first sweep suggested once depths vary
    (16/33 correct vs 1/6 at depth 0.5).
 
