@@ -2,6 +2,35 @@
 
 Newest first. Each entry says what was measured, where the data is, and what it changes.
 
+## 2026-11-17 — E2: late-layer-only sparsity (Gate C′) not supported on held-out repos (RTX 4090 desktop, measured)
+
+Pre-registered in `gate-c-layer-split.md` (committed b7027bd before any E2 data). Oracle sparse
+attention (R + top-k% cold pages, P=128) only in layers 23–34, exact elsewhere; held-out repos
+(3rd/4th per language), 8K/16K/32K, 102 prompts (axios and nsq too small for 32K).
+Data: `results/e2/2026-11-17/` (prompts.json, summary.json); traces in `traces/e2/` (not in git).
+
+Correct stratum (decision):
+
+| ctx | n | C1 L23–34 (A k=20% / B k=10%) | C2 L23–34 | A identical | A same-found | B identical | B same-found |
+|---|---|---|---|---|---|---|---|
+| 8K | 31 | 0.72 / 0.50 | 0.79 | 0.84 | 1.00 | 0.77 | 1.00 |
+| 16K | 23 | 0.81 / 0.63 | 0.78 | **0.96** | **1.00** | **0.96** | **1.00** |
+| 32K | 17 | 0.89 / 0.71 | 0.78 | 0.94 | **0.94** | 0.88 | 1.00 |
+
+- Arm A (primary) fails: at 32K one correct prompt (karatelabs/karate, needle `createNodeByPath`)
+  diverges at token 4 and writes a different function. Arm B fails C3′a at 32K (0.88).
+  Both arms pass only at 16K; 8K fails for both.
+- Non-monotonic: on that prompt the *larger* page set (A) lost retrieval while B kept it — a
+  sign that tiny perturbations early in the answer flip the outcome, not that more pages hurt.
+- The secondary C1 / C2 replicate E1's per-layer numbers on new repos (prediction held): the
+  late-layer pattern is real, but not concentrated enough to be lossless.
+- The margin is one prompt out of 17; the rule was fixed in advance and is applied as written.
+
+Consequence (per the pre-registered table): **close the sparsity line for Qwen3-4B on code.**
+Exact hybrid stays a capacity tool; the next lever for CPU-side speed is fewer bytes per cold
+token (KV quantisation on the host side), not selecting tokens. Even a pass would have been
+capped at ≈1.37× on the CPU part.
+
 ## 2026-11-17 — E1: Gate C fails on all pre-registered criteria (Qwen3-4B, RepoQA code, measured)
 
 `bench/e1_locality.py`, `bench/analyze_e1.py`; criteria fixed beforehand in

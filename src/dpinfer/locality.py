@@ -8,6 +8,7 @@ During decode (one query token) with STATE.mode:
   "oracle"  attend only to the always-resident set R (first `sink` + last `recent` positions)
             plus the top `oracle_frac` cold pages (page size `oracle_page`), chosen per
             (layer, KV head) from exact scores at this step. Lossy upper bound for any selector.
+            If STATE.sparse_layers is a set, only those layers are sparse; the rest use exact SDPA.
   None      plain SDPA.
 
 Metrics recorded per decode step t, layer l, KV head h, page size P and top-k fraction k:
@@ -33,6 +34,7 @@ class TraceState:
         self.n_layers, self.n_kv = n_layers, n_kv
         self.sink, self.recent, self.max_steps = sink, recent, max_steps
         self.oracle_page, self.oracle_frac = oracle_page, oracle_frac
+        self.sparse_layers = None   # oracle mode: None = all layers sparse, else a set of layer ids (E2)
         self.mode = None
         self.reset()
 
@@ -114,7 +116,9 @@ STATE: TraceState | None = None
 
 def trace_attention(module, query, key, value, attention_mask, scaling=None, dropout=0.0, **kwargs):
     st = STATE
-    if st is None or st.mode is None or query.shape[2] != 1:
+    if (st is None or st.mode is None or query.shape[2] != 1
+            or (st.mode == "oracle" and st.sparse_layers is not None
+                and module.layer_idx not in st.sparse_layers)):
         return sdpa_attention_forward(module, query, key, value, attention_mask, dropout=dropout,
                                       scaling=scaling, **kwargs)
     _, hq, _, d = query.shape

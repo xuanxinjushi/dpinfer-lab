@@ -3,6 +3,10 @@
 Status: **fixed 2026-11-17, after E1 and before any E2 data.** Changing anything below after seeing
 E2 data must be recorded here with the date and reason.
 
+**Outcome (2026-11-17): H′ not supported — arm A fails** (C3′b at 32K: 16/17 correct prompts keep
+the retrieval outcome; one loses it). Arms pass only at 16K; 8K fails C3′a for both. Criteria
+unchanged. Details: `docs/findings.md`, `results/e2/2026-11-17/`.
+
 ## Where the hypothesis comes from
 
 Gate C failed ([gate-c-criteria.md](gate-c-criteria.md), [findings.md](findings.md)). E1's
